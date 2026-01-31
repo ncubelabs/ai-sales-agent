@@ -8,13 +8,7 @@ export interface GenerateRequest {
 
 export interface GenerateResponse {
   success: boolean;
-  research?: {
-    company_name: string;
-    industry: string;
-    description: string;
-    key_points: string[];
-    pain_points: string[];
-  };
+  research?: Record<string, unknown>; // Flexible structure from backend
   script?: string;
   audio_url?: string;
   video_url?: string;
@@ -120,13 +114,8 @@ async function pollForCompletion(
     if (status.status === 'completed') {
       return {
         success: true,
-        research: status.research ? {
-          company_name: status.research.company_name || '',
-          industry: status.research.industry || '',
-          description: status.research.description || '',
-          key_points: status.research.key_points || [],
-          pain_points: status.research.pain_points || [],
-        } : undefined,
+        // Pass through the full research object - ResearchCard handles the structure
+        research: status.research || undefined,
         script: status.script,
         audio_url: status.audio_path ? `${API_BASE}/outputs/${status.audio_path.split('/').pop()}` : undefined,
         video_url: status.final_path ? `${API_BASE}/outputs/${status.final_path.split('/').pop()}` : undefined,
