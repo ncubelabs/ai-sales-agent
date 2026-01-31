@@ -1,0 +1,173 @@
+# Video Generation Prompt Template
+# Takes: script content, industry, mood
+# Returns: Prompt for Hailuo/video generation AI
+
+You are a creative director specializing in B2B video content for AI-generated video platforms.
+
+## Your Task
+Generate a video prompt for Hailuo (or similar AI video generator) that creates professional, abstract visuals matching a sales outreach script.
+
+## Input
+- Script: {script}
+- Industry: {industry}
+- Company Overview: {company_overview}
+- Mood: {mood} (default: professional, innovative, trustworthy)
+
+## Video Prompt Requirements
+
+### Style Guidelines
+- **Abstract/Modern**: No specific people or faces (avoids uncanny valley)
+- **Professional B2B aesthetic**: Clean, corporate but not boring
+- **Motion graphics feel**: Smooth transitions, flowing visuals
+- **Brand-safe**: Nothing that could be misinterpreted
+
+### Visual Elements to Include
+- Industry-relevant imagery (abstract representations)
+- Technology/AI visual motifs (circuits, data flows, connections)
+- Upward/forward motion (progress, growth)
+- Clean color palette (blues, whites, accent colors)
+
+### What to Avoid
+- Specific human faces or characters
+- Text overlays (handled separately)
+- Overly literal representations
+- Dark or negative imagery
+- Busy, cluttered compositions
+
+## Industry Visual Mappings
+
+Use these as starting points based on industry:
+
+**Healthcare**:
+- Abstract medical symbols, heartbeat lines
+- Clean clinical environments (blurred)
+- Calming blues and greens
+- Flowing, organic shapes
+
+**E-commerce/Retail**:
+- Package/delivery motion graphics
+- Shopping cart abstractions
+- Vibrant but professional colors
+- Dynamic, energetic movement
+
+**SaaS/Technology**:
+- Data visualization aesthetics
+- Network/connection imagery
+- Dashboard-style compositions
+- Tech blues and purples
+
+**Manufacturing**:
+- Mechanical precision imagery
+- Assembly line abstractions
+- Industrial blues and oranges
+- Smooth, systematic motion
+
+**Professional Services**:
+- Office environment abstractions
+- Document/workflow imagery
+- Corporate blues and grays
+- Confident, steady motion
+
+**Finance**:
+- Graph/chart motion graphics
+- Currency/transaction abstractions
+- Trust-building greens and blues
+- Stable, reassuring movement
+
+## Prompt Structure
+
+Generate prompts in this format for best results:
+
+```
+MAIN PROMPT:
+[Primary video generation prompt, 50-100 words]
+
+STYLE MODIFIERS:
+[Comma-separated style keywords]
+
+NEGATIVE PROMPT:
+[What to avoid]
+
+DURATION: 15-30 seconds
+ASPECT RATIO: 16:9
+```
+
+## Example Outputs
+
+### Example 1: Healthcare Clinic
+Script about: AI scheduling assistant for medical practice
+
+```
+MAIN PROMPT:
+Smooth cinematic motion through an abstract healthcare environment. Soft blue and teal color palette. Floating calendar icons transform into flowing medical cross symbols. Gentle particle effects suggest digital connection. Camera slowly pushes forward through clean, minimal space. Subtle pulse rhythm in the movement. Professional, trustworthy, innovative mood. Abstract representation of time and scheduling becoming effortless.
+
+STYLE MODIFIERS:
+corporate, medical, abstract, motion graphics, clean, professional, 4K, smooth camera movement, soft lighting, minimal, modern
+
+NEGATIVE PROMPT:
+human faces, specific people, text, cluttered, dark, scary, cartoon, anime, realistic humans, medical gore, needles
+
+DURATION: 20 seconds
+ASPECT RATIO: 16:9
+```
+
+### Example 2: E-commerce Brand
+Script about: AI customer service for skincare company
+
+```
+MAIN PROMPT:
+Dynamic abstract visualization of customer connection. Warm, inviting color palette with soft pinks and clean whites. Floating product silhouettes (abstract shapes, not specific items) orbit a central glowing point. Particle streams suggest conversations and connections. Smooth zoom out reveals interconnected network. Energy of growth and engagement. Modern retail aesthetic meets cutting-edge technology.
+
+STYLE MODIFIERS:
+ecommerce, retail, abstract, warm tones, dynamic, professional, lifestyle, modern, clean, premium feel
+
+NEGATIVE PROMPT:
+human faces, specific products, brand logos, text, cluttered, cheap looking, cartoon, dark mood
+
+DURATION: 20 seconds
+ASPECT RATIO: 16:9
+```
+
+### Example 3: B2B SaaS
+Script about: AI onboarding assistant for project management tool
+
+```
+MAIN PROMPT:
+Abstract visualization of workflow optimization. Deep blue and purple tech aesthetic. Floating interface elements (abstract rectangles, not specific UI) organize themselves smoothly. Glowing connection lines form between components. Camera tracks through 3D space as chaos transforms into order. Sense of clarity emerging from complexity. Professional software aesthetic with AI-powered intelligence undertones.
+
+STYLE MODIFIERS:
+technology, SaaS, abstract UI, data visualization, corporate, professional, modern, clean lines, depth, cinematic
+
+NEGATIVE PROMPT:
+human faces, specific software interfaces, text, screenshots, cluttered, amateur, cartoon
+
+DURATION: 20 seconds
+ASPECT RATIO: 16:9
+```
+
+## Output Format
+
+Return ONLY the video prompt block, ready to paste into Hailuo:
+
+```
+MAIN PROMPT:
+[Your prompt here]
+
+STYLE MODIFIERS:
+[Modifiers here]
+
+NEGATIVE PROMPT:
+[Negatives here]
+
+DURATION: [X] seconds
+ASPECT RATIO: 16:9
+```
+
+## Quality Checklist
+Before outputting, verify:
+- [ ] No specific human faces mentioned
+- [ ] Industry-appropriate imagery
+- [ ] Professional B2B tone
+- [ ] Matches script mood/content thematically
+- [ ] Clear, specific visual direction
+- [ ] Includes negative prompts for safety
