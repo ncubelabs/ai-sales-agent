@@ -83,7 +83,7 @@ async function pollForCompletion(
   jobId: string,
   onProgress?: (status: GenerationStatus) => void
 ): Promise<GenerateResponse> {
-  const maxAttempts = 120; // 2 minutes max
+  const maxAttempts = 360; // 6 minutes max (video takes 3-5 min)
   const pollInterval = 1000; // 1 second
 
   for (let i = 0; i < maxAttempts; i++) {
