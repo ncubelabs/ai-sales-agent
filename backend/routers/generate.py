@@ -5,6 +5,7 @@ from typing import Optional
 from pathlib import Path
 import uuid
 import json
+import re
 
 from services.minimax import get_client
 from services.scraper import scrape_company_info
@@ -99,20 +100,38 @@ Services: {', '.join(scraped.services)}
 Contact: {scraped.contact_info}
 """
         
-        prompt = RESEARCH_PROMPT.format(
-            url=request.company_url,
-            content=scraped_text
-        )
+        # Use replace instead of format to avoid issues with JSON braces in prompt
+        prompt = RESEARCH_PROMPT
+        prompt = prompt.replace("{company_url}", request.company_url)
+        prompt = prompt.replace("{company_name}", scraped.company_name or scraped.domain)
+        prompt = prompt.replace("{additional_context}", "")
+        prompt = prompt.replace("{scraped_data}", scraped_text)
         
         research_text = await client.generate_text(prompt)
-        
-        # Parse research JSON
+
+        # Parse research JSON - handle MiniMax's <think> blocks and markdown
         clean_text = research_text.strip()
+
+        # Remove <think>...</think> blocks (MiniMax includes reasoning)
+        clean_text = re.sub(r'<think>.*?</think>', '', clean_text, flags=re.DOTALL).strip()
+
+        # Remove markdown code blocks
         if clean_text.startswith("```"):
-            clean_text = clean_text.split("```")[1]
-            if clean_text.startswith("json"):
-                clean_text = clean_text[4:]
-        research = json.loads(clean_text.strip())
+            parts = clean_text.split("```")
+            if len(parts) >= 2:
+                clean_text = parts[1]
+                if clean_text.startswith("json"):
+                    clean_text = clean_text[4:]
+
+        clean_text = clean_text.strip()
+
+        # Find JSON object in response
+        json_start = clean_text.find("{")
+        json_end = clean_text.rfind("}") + 1
+        if json_start >= 0 and json_end > json_start:
+            clean_text = clean_text[json_start:json_end]
+
+        research = json.loads(clean_text)
         
         job["research"] = research
         job["progress"] = 25
@@ -120,20 +139,36 @@ Contact: {scraped.contact_info}
         # Step 2: Script (40%)
         job["status"] = "scripting"
         
-        script_prompt = SCRIPT_PROMPT.format(
-            research=json.dumps(research, indent=2),
-            our_product=request.our_product
-        )
+        # Use replace instead of format to avoid issues with JSON braces in prompt
+        script_prompt = SCRIPT_PROMPT
+        script_prompt = script_prompt.replace("{research_profile}", json.dumps(research, indent=2))
+        script_prompt = script_prompt.replace("{sender_name}", request.our_product)
         
         script = await client.generate_text(script_prompt, max_tokens=1000)
-        job["script"] = script.strip()
+
+        # Clean script - remove <think> blocks from MiniMax response
+        clean_script = re.sub(r'<think>.*?</think>', '', script, flags=re.DOTALL).strip()
+
+        # Remove markdown formatting if present
+        if clean_script.startswith("```"):
+            parts = clean_script.split("```")
+            if len(parts) >= 2:
+                clean_script = parts[1].strip()
+
+        # Extract just the script text (look for SCRIPT: marker)
+        if "SCRIPT:" in clean_script:
+            script_start = clean_script.find("SCRIPT:") + 7
+            script_end = clean_script.find("WORD_COUNT:") if "WORD_COUNT:" in clean_script else len(clean_script)
+            clean_script = clean_script[script_start:script_end].strip()
+
+        job["script"] = clean_script
         job["progress"] = 40
-        
+
         # Step 3: Voice (60%)
         job["status"] = "generating_voice"
-        
+
         audio_bytes = await client.generate_speech(
-            text=job["script"],
+            text=clean_script,
             voice_id=request.voice_id,
             emotion=request.voice_emotion
         )
@@ -163,14 +198,22 @@ Contact: {scraped.contact_info}
         # Start video generation
         video_result = await client.generate_video(video_prompt)
         task_id = video_result.get("task_id")
-        
+
         if task_id:
-            # Wait for video
+            # Wait for video to complete
             final_video = await client.wait_for_video(task_id, poll_interval=10, timeout=600)
-            video_url = final_video.get("file_url") or final_video.get("video_url")
-            
-            if video_url:
-                video_path = await download_file(video_url, OUTPUT_DIR)
+
+            # Download video file
+            file_id = final_video.get("file_id")
+            if file_id:
+                video_bytes = await client.download_video(file_id)
+                video_filename = f"video_{job_id}.mp4"
+                video_path = OUTPUT_DIR / video_filename
+                video_path.write_bytes(video_bytes)
+                job["video_path"] = str(video_path)
+            elif final_video.get("video_url"):
+                # Fallback to URL download if available
+                video_path = await download_file(final_video["video_url"], OUTPUT_DIR)
                 job["video_path"] = video_path
         
         job["progress"] = 85

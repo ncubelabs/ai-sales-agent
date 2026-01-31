@@ -9,9 +9,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from dotenv import load_dotenv
 
-# Load environment variables from parent .env
-env_path = Path(__file__).parent.parent / ".env"
-load_dotenv(env_path)
+# Load environment variables from local .env first, then parent
+load_dotenv(Path(__file__).parent / ".env")
+load_dotenv(Path(__file__).parent.parent / ".env")
 
 # Add current directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent))
@@ -29,11 +29,17 @@ async def lifespan(app: FastAPI):
     print("🚀 AI Sales Agent Backend starting...")
     print(f"📁 Output directory: {OUTPUT_DIR}")
     
-    # Check for API key
+    # Check for API credentials
     if not os.getenv("MINIMAX_API_KEY"):
         print("⚠️  WARNING: MINIMAX_API_KEY not set!")
     else:
         print("✅ MiniMax API key loaded")
+
+    if not os.getenv("MINIMAX_GROUP_ID"):
+        print("⚠️  WARNING: MINIMAX_GROUP_ID not set - TTS will not work!")
+        print("   Find it at: https://www.minimax.io/platform/user-center/basic-information")
+    else:
+        print("✅ MiniMax Group ID loaded")
     
     yield
     

@@ -23,13 +23,21 @@ export default function Home() {
     setIsLoading(true);
     setError(null);
     setResult(null);
+    setCurrentStep('research');
+    setStatusMessage('Starting pipeline...');
 
     try {
-      // Simulate step progression (backend will eventually support streaming)
-      setCurrentStep('research');
-      setStatusMessage('Analyzing company website...');
-
-      const response = await generateVideo(data);
+      const response = await generateVideo(data, (status) => {
+        setCurrentStep(status.step);
+        const messages: Record<string, string> = {
+          'research': 'Analyzing company website...',
+          'script': 'Generating personalized script...',
+          'voice': 'Creating AI voiceover...',
+          'video': 'Generating video...',
+          'done': 'Complete!',
+        };
+        setStatusMessage(messages[status.step] || status.message);
+      });
 
       if (!response.success) {
         throw new Error(response.error || 'Generation failed');
@@ -38,7 +46,7 @@ export default function Home() {
       // Update with results
       setResult(response);
       setCurrentStep('done');
-      setStatusMessage('Video generated successfully!');
+      setStatusMessage('Generation complete!');
     } catch (err) {
       console.error('Generation error:', err);
       setCurrentStep('error');
