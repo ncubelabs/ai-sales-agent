@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Sales Agent - Hackathon Pitch</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, sans-serif;
+      background: #0a0a0a;
+      color: #fff;
+    }
+
+    .slide {
+      width: 100%;
+      min-height: 100vh;
+      padding: 60px 80px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      page-break-after: always;
+      position: relative;
+    }
+
+    .slide::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 4px;
+      background: linear-gradient(90deg, #8b5cf6, #ec4899);
+    }
+
+    h1 {
+      font-size: 64px;
+      font-weight: 700;
+      margin-bottom: 24px;
+      background: linear-gradient(135deg, #8b5cf6, #ec4899);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    h2 {
+      font-size: 48px;
+      font-weight: 600;
+      margin-bottom: 40px;
+      color: #fff;
+    }
+
+    h3 {
+      font-size: 24px;
+      font-weight: 500;
+      color: #a1a1aa;
+      margin-bottom: 16px;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+    }
+
+    p {
+      font-size: 24px;
+      line-height: 1.6;
+      color: #d4d4d8;
+      max-width: 800px;
+    }
+
+    .tagline {
+      font-size: 32px;
+      color: #a1a1aa;
+      font-weight: 300;
+    }
+
+    ul {
+      list-style: none;
+      font-size: 24px;
+      line-height: 2;
+    }
+
+    li {
+      color: #d4d4d8;
+      padding-left: 32px;
+      position: relative;
+    }
+
+    li::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 14px;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #8b5cf6, #ec4899);
+    }
+
+    .highlight {
+      color: #8b5cf6;
+      font-weight: 500;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 60px;
+      margin-top: 20px;
+    }
+
+    .card {
+      background: #18181b;
+      border: 1px solid #27272a;
+      border-radius: 16px;
+      padding: 32px;
+    }
+
+    .card h4 {
+      font-size: 20px;
+      font-weight: 600;
+      margin-bottom: 16px;
+      color: #8b5cf6;
+    }
+
+    .card p, .card li {
+      font-size: 18px;
+    }
+
+    .flow {
+      display: flex;
+      align-items: center;
+      gap: 24px;
+      margin: 40px 0;
+      flex-wrap: wrap;
+    }
+
+    .flow-item {
+      background: #18181b;
+      border: 1px solid #27272a;
+      border-radius: 12px;
+      padding: 20px 32px;
+      font-size: 20px;
+      font-weight: 500;
+    }
+
+    .flow-arrow {
+      color: #8b5cf6;
+      font-size: 24px;
+    }
+
+    .stats {
+      display: flex;
+      gap: 60px;
+      margin-top: 40px;
+    }
+
+    .stat {
+      text-align: center;
+    }
+
+    .stat-value {
+      font-size: 56px;
+      font-weight: 700;
+      background: linear-gradient(135deg, #8b5cf6, #ec4899);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .stat-label {
+      font-size: 18px;
+      color: #71717a;
+      margin-top: 8px;
+    }
+
+    .suggestion-item {
+      background: #18181b;
+      border-left: 4px solid #22c55e;
+      padding: 24px;
+      margin-bottom: 20px;
+      border-radius: 0 12px 12px 0;
+    }
+
+    .suggestion-item h4 {
+      color: #22c55e;
+      font-size: 20px;
+      margin-bottom: 8px;
+    }
+
+    .suggestion-item p {
+      font-size: 18px;
+      color: #a1a1aa;
+    }
+
+    .tech-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 24px;
+      margin-top: 40px;
+    }
+
+    .tech-item {
+      background: #18181b;
+      border: 1px solid #27272a;
+      border-radius: 12px;
+      padding: 24px;
+      text-align: center;
+    }
+
+    .tech-item .icon {
+      font-size: 36px;
+      margin-bottom: 12px;
+    }
+
+    .tech-item h4 {
+      font-size: 18px;
+      font-weight: 600;
+      color: #fff;
+      margin-bottom: 8px;
+    }
+
+    .tech-item p {
+      font-size: 14px;
+      color: #71717a;
+    }
+
+    .tech-item .model-name {
+      font-size: 12px;
+      color: #8b5cf6;
+      font-family: monospace;
+      margin-top: 8px;
+    }
+
+    .footer {
+      position: absolute;
+      bottom: 40px;
+      left: 80px;
+      right: 80px;
+      display: flex;
+      justify-content: space-between;
+      color: #52525b;
+      font-size: 14px;
+    }
+
+    .cta {
+      display: inline-block;
+      background: linear-gradient(135deg, #8b5cf6, #ec4899);
+      color: #fff;
+      font-size: 24px;
+      font-weight: 600;
+      padding: 20px 48px;
+      border-radius: 12px;
+      margin-top: 40px;
+      text-decoration: none;
+    }
+
+    @media print {
+      .slide {
+        height: 100vh;
+        page-break-after: always;
+        page-break-inside: avoid;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Slide 1: Title -->
+  <div class="slide">
+    <h3>Ncubelabs.com presents</h3>
+    <h1>AI Sales Agent</h1>
+    <p class="tagline">Personalized video outreach in seconds, not hours</p>
+
+    <div class="stats">
+      <div class="stat">
+        <div class="stat-value">10s</div>
+        <div class="stat-label">Voice Clone</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value">60s</div>
+        <div class="stat-label">Full Pipeline</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value">$0.45</div>
+        <div class="stat-label">Per Video</div>
+      </div>
+    </div>
+
+    <div class="footer">
+      <span>MiniMax Hackathon 2025</span>
+      <span>1 / 6</span>
+    </div>
+  </div>
+
+  <!-- Slide 2: The Problem -->
+  <div class="slide">
+    <h3>The Problem</h3>
+    <h2>Cold Outreach is Broken</h2>
+
+    <ul>
+      <li>Generic emails get <span class="highlight">ignored</span> (2% response rate)</li>
+      <li>Personalized videos take <span class="highlight">30+ minutes</span> each to record</li>
+      <li>Sales teams can't scale personal touch</li>
+      <li>Existing tools lack <span class="highlight">true personalization</span></li>
+    </ul>
+
+    <div class="footer">
+      <span>MiniMax Hackathon 2025</span>
+      <span>2 / 6</span>
+    </div>
+  </div>
+
+  <!-- Slide 3: The Solution -->
+  <div class="slide">
+    <h3>Our Solution</h3>
+    <h2>Your Face. Your Voice. Their Company.</h2>
+
+    <div class="flow">
+      <div class="flow-item">Upload Photo</div>
+      <span class="flow-arrow">→</span>
+      <div class="flow-item">Record 20s Voice</div>
+      <span class="flow-arrow">→</span>
+      <div class="flow-item">Enter Company URL</div>
+      <span class="flow-arrow">→</span>
+      <div class="flow-item">AI Magic</div>
+    </div>
+
+    <p>We research the prospect's company, write a personalized script, clone your voice, and generate a talking-head video — all automatically.</p>
+
+    <div class="footer">
+      <span>MiniMax Hackathon 2025</span>
+      <span>3 / 6</span>
+    </div>
+  </div>
+
+  <!-- Slide 4: Tech Stack -->
+  <div class="slide">
+    <h3>Built With</h3>
+    <h2>MiniMax API Tech Stack</h2>
+
+    <div class="tech-grid">
+      <div class="tech-item">
+        <div class="icon">🧠</div>
+        <h4>Text Generation</h4>
+        <p>Company research & personalized script writing</p>
+        <div class="model-name">MiniMax-M2</div>
+      </div>
+      <div class="tech-item">
+        <div class="icon">🎤</div>
+        <h4>Voice Cloning</h4>
+        <p>Clone any voice from 10-20 second sample</p>
+        <div class="model-name">/v1/voice_clone</div>
+      </div>
+      <div class="tech-item">
+        <div class="icon">🗣️</div>
+        <h4>Text-to-Speech</h4>
+        <p>High-quality speech with cloned voice</p>
+        <div class="model-name">speech-02-hd</div>
+      </div>
+      <div class="tech-item">
+        <div class="icon">🎬</div>
+        <h4>Video Generation</h4>
+        <p>Subject-reference talking head videos</p>
+        <div class="model-name">S2V-01 (Hailuo)</div>
+      </div>
+      <div class="tech-item">
+        <div class="icon">📁</div>
+        <h4>File Management</h4>
+        <p>Audio upload for voice cloning</p>
+        <div class="model-name">/v1/files/upload</div>
+      </div>
+      <div class="tech-item">
+        <div class="icon">⚡</div>
+        <h4>Backend + Frontend</h4>
+        <p>FastAPI async server, Next.js 15 React</p>
+        <div class="model-name">Python + TypeScript</div>
+      </div>
+    </div>
+
+    <div class="footer">
+      <span>MiniMax Hackathon 2025</span>
+      <span>4 / 6</span>
+    </div>
+  </div>
+
+  <!-- Slide 5: Suggestions for MiniMax -->
+  <div class="slide">
+    <h3>Feedback</h3>
+    <h2>Suggestions for MiniMax</h2>
+
+    <div class="suggestion-item">
+      <h4>1. Add image upload for subject_reference</h4>
+      <p>Allow purpose="subject_reference" in /v1/files/upload API for S2V-01 video generation, avoiding need for external image hosting.</p>
+    </div>
+
+    <div class="suggestion-item">
+      <h4>2. Consistent parameter types in documentation</h4>
+      <p>Clarify that file_id in voice_clone must be integer. Add language-specific type hints (TypeScript, Python) to code examples.</p>
+    </div>
+
+    <div class="suggestion-item">
+      <h4>3. More descriptive error messages</h4>
+      <p>Error 2013 "invalid params" should specify which parameter is invalid and expected format/type.</p>
+    </div>
+
+    <div class="suggestion-item">
+      <h4>4. Document GroupId requirement prominently</h4>
+      <p>GroupId is required for voice_clone and TTS but easy to miss. Consider making it a header instead of query parameter.</p>
+    </div>
+
+    <div class="footer">
+      <span>MiniMax Hackathon 2025</span>
+      <span>5 / 6</span>
+    </div>
+  </div>
+
+  <!-- Slide 6: Thank You -->
+  <div class="slide">
+    <h3>Thank You</h3>
+    <h1>AI Sales Agent</h1>
+    <p class="tagline">Personalized outreach at scale</p>
+
+    <div style="margin-top: 60px;">
+      <p style="font-size: 20px; color: #71717a;">
+        <strong style="color: #fff;">GitHub:</strong> github.com/ncubelabs/ai-sales-agent<br><br>
+        <strong style="color: #fff;">Built by:</strong> Ncubelabs.com<br><br>
+        <strong style="color: #fff;">Powered by:</strong> MiniMax APIs (M2, Speech-02-HD, S2V-01)
+      </p>
+    </div>
+
+    <div class="footer">
+      <span>MiniMax Hackathon 2025</span>
+      <span>6 / 6</span>
+    </div>
+  </div>
+
+</body>
+</html>

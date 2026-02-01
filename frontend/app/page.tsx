@@ -135,7 +135,7 @@ export default function Home() {
           {/* Logo/Brand */}
           <div className="inline-flex items-center gap-2 px-4 py-2 bg-card rounded-full mb-6">
             <Zap className="w-5 h-5 text-accent" />
-            <span className="text-sm font-medium text-gray-300">NCube Labs</span>
+            <span className="text-sm font-medium text-gray-300">Ncubelabs.com</span>
           </div>
 
           {/* Title */}
@@ -305,7 +305,7 @@ export default function Home() {
 
         {/* Footer */}
         <footer className="mt-16 text-center text-sm text-gray-600">
-          <p>Built with ❤️ by NCube Labs • Hackathon 2025</p>
+          <p>Built with ❤️ by Ncubelabs.com • Hackathon 2025</p>
         </footer>
       </div>
     </div>
