@@ -107,31 +107,6 @@
       font-weight: 500;
     }
 
-    .grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 60px;
-      margin-top: 20px;
-    }
-
-    .card {
-      background: #18181b;
-      border: 1px solid #27272a;
-      border-radius: 16px;
-      padding: 32px;
-    }
-
-    .card h4 {
-      font-size: 20px;
-      font-weight: 600;
-      margin-bottom: 16px;
-      color: #8b5cf6;
-    }
-
-    .card p, .card li {
-      font-size: 18px;
-    }
-
     .flow {
       display: flex;
       align-items: center;
@@ -179,25 +154,6 @@
       margin-top: 8px;
     }
 
-    .suggestion-item {
-      background: #18181b;
-      border-left: 4px solid #22c55e;
-      padding: 24px;
-      margin-bottom: 20px;
-      border-radius: 0 12px 12px 0;
-    }
-
-    .suggestion-item h4 {
-      color: #22c55e;
-      font-size: 20px;
-      margin-bottom: 8px;
-    }
-
-    .suggestion-item p {
-      font-size: 18px;
-      color: #a1a1aa;
-    }
-
     .tech-grid {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
@@ -237,6 +193,62 @@
       margin-top: 8px;
     }
 
+    .roadmap-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 24px;
+      margin-top: 40px;
+    }
+
+    .roadmap-item {
+      background: #18181b;
+      border: 1px solid #27272a;
+      border-radius: 16px;
+      padding: 28px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .roadmap-item::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 4px;
+      height: 100%;
+      background: linear-gradient(180deg, #8b5cf6, #ec4899);
+    }
+
+    .roadmap-item .phase {
+      font-size: 12px;
+      font-weight: 600;
+      color: #8b5cf6;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 8px;
+    }
+
+    .roadmap-item h4 {
+      font-size: 22px;
+      font-weight: 600;
+      color: #fff;
+      margin-bottom: 12px;
+    }
+
+    .roadmap-item p {
+      font-size: 16px;
+      color: #a1a1aa;
+      line-height: 1.5;
+    }
+
+    .roadmap-item .icon {
+      position: absolute;
+      top: 24px;
+      right: 24px;
+      font-size: 32px;
+      opacity: 0.5;
+    }
+
     .footer {
       position: absolute;
       bottom: 40px;
@@ -246,18 +258,6 @@
       justify-content: space-between;
       color: #52525b;
       font-size: 14px;
-    }
-
-    .cta {
-      display: inline-block;
-      background: linear-gradient(135deg, #8b5cf6, #ec4899);
-      color: #fff;
-      font-size: 24px;
-      font-weight: 600;
-      padding: 20px 48px;
-      border-radius: 12px;
-      margin-top: 40px;
-      text-decoration: none;
     }
 
     @media print {
@@ -389,29 +389,48 @@
     </div>
   </div>
 
-  <!-- Slide 5: Suggestions for MiniMax -->
+  <!-- Slide 5: Roadmap -->
   <div class="slide">
-    <h3>Feedback</h3>
-    <h2>Suggestions for MiniMax</h2>
+    <h3>What's Next</h3>
+    <h2>Roadmap</h2>
 
-    <div class="suggestion-item">
-      <h4>1. Add image upload for subject_reference</h4>
-      <p>Allow purpose="subject_reference" in /v1/files/upload API for S2V-01 video generation, avoiding need for external image hosting.</p>
-    </div>
-
-    <div class="suggestion-item">
-      <h4>2. Consistent parameter types in documentation</h4>
-      <p>Clarify that file_id in voice_clone must be integer. Add language-specific type hints (TypeScript, Python) to code examples.</p>
-    </div>
-
-    <div class="suggestion-item">
-      <h4>3. More descriptive error messages</h4>
-      <p>Error 2013 "invalid params" should specify which parameter is invalid and expected format/type.</p>
-    </div>
-
-    <div class="suggestion-item">
-      <h4>4. Document GroupId requirement prominently</h4>
-      <p>GroupId is required for voice_clone and TTS but easy to miss. Consider making it a header instead of query parameter.</p>
+    <div class="roadmap-grid">
+      <div class="roadmap-item">
+        <div class="icon">🎯</div>
+        <div class="phase">Q1 2025</div>
+        <h4>Perfect Lip Sync</h4>
+        <p>Integrate D-ID for frame-perfect lip synchronization with cloned voice audio</p>
+      </div>
+      <div class="roadmap-item">
+        <div class="icon">📧</div>
+        <div class="phase">Q1 2025</div>
+        <h4>CRM Integration</h4>
+        <p>One-click export to HubSpot, Salesforce, and Outreach.io sequences</p>
+      </div>
+      <div class="roadmap-item">
+        <div class="icon">🚀</div>
+        <div class="phase">Q2 2025</div>
+        <h4>Batch Processing</h4>
+        <p>Upload CSV of 1000 leads, get 1000 personalized videos overnight</p>
+      </div>
+      <div class="roadmap-item">
+        <div class="icon">🌍</div>
+        <div class="phase">Q2 2025</div>
+        <h4>Multi-Language</h4>
+        <p>Auto-translate scripts and generate videos in 20+ languages</p>
+      </div>
+      <div class="roadmap-item">
+        <div class="icon">📊</div>
+        <div class="phase">Q3 2025</div>
+        <h4>Analytics Dashboard</h4>
+        <p>Track opens, watch time, and replies with built-in video hosting</p>
+      </div>
+      <div class="roadmap-item">
+        <div class="icon">🤖</div>
+        <div class="phase">Q3 2025</div>
+        <h4>AI Sales Copilot</h4>
+        <p>Real-time coaching and follow-up suggestions based on prospect engagement</p>
+      </div>
     </div>
 
     <div class="footer">
