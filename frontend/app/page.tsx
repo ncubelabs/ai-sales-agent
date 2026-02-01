@@ -305,7 +305,7 @@ export default function Home() {
 
         {/* Footer */}
         <footer className="mt-16 text-center text-sm text-gray-600">
-          <p>Built with ❤️ by Ncubelabs.com • Hackathon 2025</p>
+          <p>Built with ❤️ by Ncubelabs.com</p>
         </footer>
       </div>
     </div>
