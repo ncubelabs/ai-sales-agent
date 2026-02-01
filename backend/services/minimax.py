@@ -1,4 +1,4 @@
-"""MiniMax API Client - M2 Text, Speech TTS, Hailuo Video
+"""MiniMax API Client - M2 Text, Speech TTS, Hailuo Video, Voice Clone, S2V-01
 
 Required environment variables:
 - MINIMAX_API_KEY: Your MiniMax API key
@@ -7,7 +7,7 @@ Required environment variables:
 """
 import os
 import httpx
-from typing import Optional
+from typing import Optional, Literal
 import asyncio
 
 MINIMAX_API_KEY = os.getenv("MINIMAX_API_KEY")
@@ -62,6 +62,7 @@ class MiniMaxClient:
 
         Requires MINIMAX_GROUP_ID to be set.
         Voice IDs: male-qn-qingse, male-qn-jingying, female-shaonv, female-yujie, etc.
+        For cloned voices, use the voice_id returned from clone_voice().
         """
         if not self.group_id:
             raise ValueError(
@@ -76,7 +77,8 @@ class MiniMaxClient:
             "voice_setting": {
                 "voice_id": voice_id,
                 "speed": speed,
-                "emotion": emotion
+                "vol": 1.0,
+                "pitch": 0
             },
             "audio_setting": {
                 "format": "mp3",
@@ -98,7 +100,7 @@ class MiniMaxClient:
 
         # Check for API-level errors
         if data.get("base_resp", {}).get("status_code") != 0:
-            raise Exception(f"MiniMax TTS error: {data.get('base_resp', {}).get('status_msg')}")
+            raise Exception(f"MiniMax TTS error: {data.get('base_resp', {}).get('status_msg')} (Response: {data})")
 
         # Audio is hex-encoded in the response
         audio_hex = data.get("data", {}).get("audio") or data.get("audio_file")
@@ -106,6 +108,165 @@ class MiniMaxClient:
             raise Exception(f"No audio in response: {data}")
 
         return bytes.fromhex(audio_hex)
+
+    async def upload_file(
+        self,
+        file_bytes: bytes,
+        filename: str,
+        purpose: Literal["voice_clone", "subject_reference"] = "voice_clone"
+    ) -> str:
+        """Upload a file to MiniMax for voice cloning or subject reference
+
+        Args:
+            file_bytes: The file content as bytes
+            filename: Original filename (used to determine content type)
+            purpose: 'voice_clone' for audio files, 'subject_reference' for video images
+
+        Returns:
+            file_id for use with clone_voice or generate_subject_video
+        """
+        # Determine content type from filename
+        ext = filename.lower().split('.')[-1] if '.' in filename else ''
+        content_type_map = {
+            'mp3': 'audio/mpeg',
+            'wav': 'audio/wav',
+            'm4a': 'audio/mp4',
+            'jpg': 'image/jpeg',
+            'jpeg': 'image/jpeg',
+            'png': 'image/png',
+        }
+        content_type = content_type_map.get(ext, 'application/octet-stream')
+
+        # MiniMax file upload uses multipart/form-data
+        files = {
+            'file': (filename, file_bytes, content_type)
+        }
+        data = {
+            'purpose': purpose
+        }
+
+        # Create a new client without JSON content-type for multipart upload
+        # Include GroupId for voice_clone uploads (required by API)
+        upload_url = "/files/upload"
+        if self.group_id:
+            upload_url = f"/files/upload?GroupId={self.group_id}"
+
+        async with httpx.AsyncClient(
+            base_url=MINIMAX_BASE_URL,
+            headers={"Authorization": f"Bearer {self.api_key}"},
+            timeout=120.0
+        ) as upload_client:
+            response = await upload_client.post(upload_url, files=files, data=data)
+
+        if response.status_code != 200:
+            error_text = response.text
+            raise Exception(f"MiniMax file upload error {response.status_code}: {error_text}")
+
+        resp_data = response.json()
+
+        # Check for API-level errors
+        base_resp = resp_data.get("base_resp", {})
+        if base_resp.get("status_code") != 0:
+            raise Exception(f"MiniMax upload error: {base_resp.get('status_msg')} (Response: {resp_data})")
+
+        file_id = resp_data.get("file", {}).get("file_id")
+        if not file_id:
+            raise Exception(f"No file_id in upload response: {resp_data}")
+
+        # Return file_id as string for storage, but it will be converted to int for API calls
+        return str(file_id)
+
+    async def clone_voice(self, file_id: str, voice_name: str) -> str:
+        """Clone a voice from an uploaded audio sample
+
+        Args:
+            file_id: The file_id from upload_file (audio 10s-5min, MP3/WAV/M4A)
+            voice_name: Custom voice ID (will be used for TTS)
+
+        Returns:
+            voice_id to be used with generate_speech
+        """
+        if not self.group_id:
+            raise ValueError(
+                "MINIMAX_GROUP_ID not set. "
+                "Find it at: https://www.minimax.io/platform/user-center/basic-information"
+            )
+
+        # MiniMax Voice Clone API
+        # Reference: https://platform.minimax.io/docs/api-reference/voice-cloning-clone.md
+        # Note: file_id must be an integer, not string
+        payload = {
+            "file_id": int(file_id),
+            "voice_id": voice_name,
+        }
+
+        # Voice clone requires GroupId as query parameter
+        response = await self.http_client.post(
+            f"/voice_clone?GroupId={self.group_id}",
+            json=payload
+        )
+
+        if response.status_code != 200:
+            error_text = response.text
+            raise Exception(f"MiniMax voice clone error {response.status_code}: {error_text}")
+
+        data = response.json()
+
+        # Check for API-level errors
+        base_resp = data.get("base_resp", {})
+        if base_resp.get("status_code") != 0:
+            error_msg = base_resp.get("status_msg", "Unknown error")
+            raise Exception(f"MiniMax voice clone error: {error_msg} (Response: {data})")
+
+        # Return the voice_id for use with TTS
+        return voice_name
+
+    async def generate_subject_video(
+        self,
+        image_url: str,
+        prompt: str,
+        duration: int = 6
+    ) -> dict:
+        """Generate a video using S2V-01 with subject reference (talking head)
+
+        Args:
+            image_url: Public URL of the face image for subject reference
+            prompt: Text description of the video (should describe person talking)
+            duration: Video length in seconds (6 or 10)
+
+        Returns:
+            dict with task_id for status polling
+        """
+        payload = {
+            "model": "S2V-01",
+            "prompt": prompt,
+            "prompt_optimizer": True,
+            "duration": duration,
+            "subject_reference": [
+                {
+                    "type": "character",
+                    "image": [image_url]
+                }
+            ]
+        }
+
+        response = await self.http_client.post("/video_generation", json=payload)
+
+        if response.status_code != 200:
+            error_text = response.text
+            raise Exception(f"MiniMax S2V-01 API error {response.status_code}: {error_text}")
+
+        data = response.json()
+
+        # Check for API-level errors
+        base_resp = data.get("base_resp", {})
+        if base_resp.get("status_code") != 0:
+            raise Exception(f"MiniMax S2V-01 error: {base_resp.get('status_msg')}")
+
+        return {
+            "task_id": data.get("task_id"),
+            "status": "pending"
+        }
     
     async def generate_video(
         self,

@@ -1,18 +1,27 @@
 'use client';
 
 import { useState } from 'react';
-import { Zap, ArrowRight } from 'lucide-react';
+import { Zap, ArrowRight, User, Sparkles } from 'lucide-react';
 import ProspectForm from '@/components/ProspectForm';
+import PersonalizedForm from '@/components/PersonalizedForm';
 import ProgressSteps from '@/components/ProgressSteps';
 import ResearchCard from '@/components/ResearchCard';
 import ScriptEditor from '@/components/ScriptEditor';
 import AudioPlayer from '@/components/AudioPlayer';
 import VideoPlayer from '@/components/VideoPlayer';
-import { GenerateRequest, GenerateResponse, generateVideo } from '@/lib/api';
+import {
+  GenerateRequest,
+  GenerateResponse,
+  generateVideo,
+  PersonalizedGenerateRequest,
+  generatePersonalizedVideo,
+} from '@/lib/api';
 
 type Step = 'research' | 'script' | 'voice' | 'video' | 'done' | 'error' | 'idle';
+type Mode = 'standard' | 'personalized';
 
 export default function Home() {
+  const [mode, setMode] = useState<Mode>('personalized');
   const [currentStep, setCurrentStep] = useState<Step>('idle');
   const [statusMessage, setStatusMessage] = useState('');
   const [result, setResult] = useState<GenerateResponse | null>(null);
@@ -37,18 +46,72 @@ export default function Home() {
           'done': 'Complete!',
         };
         setStatusMessage(messages[status.step] || status.message);
+
+        // Update results incrementally as they become available
+        setResult(prev => ({
+          success: true,
+          research: status.research || prev?.research,
+          script: status.script || prev?.script,
+          audio_url: status.audio_url || prev?.audio_url,
+          video_url: status.video_url || prev?.video_url,
+        }));
       });
 
       if (!response.success) {
         throw new Error(response.error || 'Generation failed');
       }
 
-      // Update with results
       setResult(response);
       setCurrentStep('done');
       setStatusMessage('Generation complete!');
     } catch (err) {
       console.error('Generation error:', err);
+      setCurrentStep('error');
+      setError(err instanceof Error ? err.message : 'Something went wrong');
+      setStatusMessage('Generation failed');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handlePersonalizedSubmit = async (data: PersonalizedGenerateRequest) => {
+    setIsLoading(true);
+    setError(null);
+    setResult(null);
+    setCurrentStep('research');
+    setStatusMessage('Starting personalized pipeline...');
+
+    try {
+      const response = await generatePersonalizedVideo(data, (status) => {
+        setCurrentStep(status.step);
+        const messages: Record<string, string> = {
+          'research': 'Analyzing company website...',
+          'script': 'Generating personalized script...',
+          'voice': 'Cloning your voice...',
+          'video': 'Creating your talking head video...',
+          'done': 'Complete!',
+        };
+        setStatusMessage(messages[status.step] || status.message);
+
+        // Update results incrementally as they become available
+        setResult(prev => ({
+          success: true,
+          research: status.research || prev?.research,
+          script: status.script || prev?.script,
+          audio_url: status.audio_url || prev?.audio_url,
+          video_url: status.video_url || prev?.video_url,
+        }));
+      });
+
+      if (!response.success) {
+        throw new Error(response.error || 'Generation failed');
+      }
+
+      setResult(response);
+      setCurrentStep('done');
+      setStatusMessage('Personalized video complete!');
+    } catch (err) {
+      console.error('Personalized generation error:', err);
       setCurrentStep('error');
       setError(err instanceof Error ? err.message : 'Something went wrong');
       setStatusMessage('Generation failed');
@@ -107,14 +170,46 @@ export default function Home() {
               Video
             </span>
           </div>
+
+          {/* Mode Toggle */}
+          {currentStep === 'idle' && (
+            <div className="flex justify-center gap-2 mt-8">
+              <button
+                onClick={() => setMode('standard')}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                  mode === 'standard'
+                    ? 'bg-accent text-white'
+                    : 'bg-white/5 text-gray-400 hover:bg-white/10'
+                }`}
+              >
+                <Sparkles className="w-4 h-4" />
+                Standard
+              </button>
+              <button
+                onClick={() => setMode('personalized')}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                  mode === 'personalized'
+                    ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white'
+                    : 'bg-white/5 text-gray-400 hover:bg-white/10'
+                }`}
+              >
+                <User className="w-4 h-4" />
+                Personalized (Your Face + Voice)
+              </button>
+            </div>
+          )}
         </header>
 
         {/* Main Content */}
         <div className="space-y-8">
           {/* Form Card */}
           {currentStep === 'idle' && (
-            <div className="card p-8 glow-accent">
-              <ProspectForm onSubmit={handleSubmit} isLoading={isLoading} />
+            <div className={`card p-8 ${mode === 'personalized' ? 'glow-purple' : 'glow-accent'}`}>
+              {mode === 'standard' ? (
+                <ProspectForm onSubmit={handleSubmit} isLoading={isLoading} />
+              ) : (
+                <PersonalizedForm onSubmit={handlePersonalizedSubmit} isLoading={isLoading} />
+              )}
             </div>
           )}
 
@@ -144,53 +239,56 @@ export default function Home() {
             </div>
           )}
 
-          {/* Loading Skeletons */}
-          {isLoading && (
-            <div className="space-y-4">
-              <div className="card p-4">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="w-10 h-10 rounded-lg skeleton" />
-                  <div className="space-y-2">
-                    <div className="w-32 h-4 skeleton rounded" />
-                    <div className="w-24 h-3 skeleton rounded" />
+          {/* Intermediate and Final Results */}
+          {(result || isLoading) && currentStep !== 'idle' && (
+            <div className="space-y-6">
+              {/* Research Card - show as soon as available */}
+              {result?.research && (
+                <div className="animate-in fade-in-0 slide-in-from-bottom-4 duration-500">
+                  <ResearchCard research={result.research} />
+                </div>
+              )}
+
+              {/* Script Editor - show as soon as available */}
+              {result?.script && (
+                <div className="animate-in fade-in-0 slide-in-from-bottom-4 duration-500">
+                  <ScriptEditor script={result.script} readonly />
+                </div>
+              )}
+
+              {/* Audio Player - show as soon as available */}
+              {result?.audio_url && (
+                <div className="animate-in fade-in-0 slide-in-from-bottom-4 duration-500">
+                  <AudioPlayer src={result.audio_url} title="AI Voiceover" />
+                </div>
+              )}
+
+              {/* Loading placeholder for next step */}
+              {isLoading && !result?.video_url && (
+                <div className="card p-6">
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-lg skeleton" />
+                    <div className="flex-1">
+                      <div className="w-48 h-4 skeleton rounded mb-2" />
+                      <div className="w-32 h-3 skeleton rounded" />
+                    </div>
                   </div>
                 </div>
-              </div>
-              <div className="card p-4">
-                <div className="w-full h-48 skeleton rounded-lg" />
-              </div>
-            </div>
-          )}
-
-          {/* Results */}
-          {result && currentStep === 'done' && (
-            <div className="space-y-6 animate-in fade-in-0 slide-in-from-bottom-4 duration-500">
-              {/* Research Card */}
-              {result.research && (
-                <ResearchCard research={result.research} />
               )}
 
-              {/* Script Editor */}
-              {result.script && (
-                <ScriptEditor script={result.script} readonly />
+              {/* Video Player - show when complete */}
+              {result?.video_url && (
+                <div className="animate-in fade-in-0 slide-in-from-bottom-4 duration-500">
+                  <VideoPlayer
+                    src={result.video_url}
+                    title="Your Sales Video"
+                    onGenerateAnother={handleGenerateAnother}
+                  />
+                </div>
               )}
 
-              {/* Audio Player */}
-              {result.audio_url && (
-                <AudioPlayer src={result.audio_url} title="AI Voiceover" />
-              )}
-
-              {/* Video Player */}
-              {result.video_url && (
-                <VideoPlayer
-                  src={result.video_url}
-                  title="Your Sales Video"
-                  onGenerateAnother={handleGenerateAnother}
-                />
-              )}
-
-              {/* No video but generation complete - show generate another */}
-              {!result.video_url && (
+              {/* Generation complete without video */}
+              {currentStep === 'done' && !result?.video_url && (
                 <div className="card p-6 text-center">
                   <p className="text-gray-400 mb-4">Generation complete but video not available.</p>
                   <button

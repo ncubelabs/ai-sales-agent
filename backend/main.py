@@ -16,34 +16,47 @@ load_dotenv(Path(__file__).parent.parent / ".env")
 # Add current directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent))
 
-from routers import research, script, voice, video, generate
+from routers import research, script, voice, video, generate, personalized
 
-# Create outputs directory
+# Create required directories
 OUTPUT_DIR = Path(__file__).parent / "outputs"
+UPLOAD_DIR = Path(__file__).parent / "uploads"
+DATA_DIR = Path(__file__).parent / "data"
+
 OUTPUT_DIR.mkdir(exist_ok=True)
+UPLOAD_DIR.mkdir(exist_ok=True)
+DATA_DIR.mkdir(exist_ok=True)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan - startup and shutdown"""
-    print("🚀 AI Sales Agent Backend starting...")
-    print(f"📁 Output directory: {OUTPUT_DIR}")
-    
+    print("AI Sales Agent Backend starting...")
+    print(f"Output directory: {OUTPUT_DIR}")
+    print(f"Upload directory: {UPLOAD_DIR}")
+    print(f"Data directory: {DATA_DIR}")
+
     # Check for API credentials
     if not os.getenv("MINIMAX_API_KEY"):
-        print("⚠️  WARNING: MINIMAX_API_KEY not set!")
+        print("WARNING: MINIMAX_API_KEY not set!")
     else:
-        print("✅ MiniMax API key loaded")
+        print("MiniMax API key loaded")
 
     if not os.getenv("MINIMAX_GROUP_ID"):
-        print("⚠️  WARNING: MINIMAX_GROUP_ID not set - TTS will not work!")
-        print("   Find it at: https://www.minimax.io/platform/user-center/basic-information")
+        print("WARNING: MINIMAX_GROUP_ID not set - TTS will not work!")
+        print("Find it at: https://www.minimax.io/platform/user-center/basic-information")
     else:
-        print("✅ MiniMax Group ID loaded")
-    
+        print("MiniMax Group ID loaded")
+
+    # Check personalized pipeline status
+    if os.getenv("ENABLE_PERSONALIZED_PIPELINE", "true").lower() == "true":
+        print("Personalized video pipeline: ENABLED")
+    else:
+        print("Personalized video pipeline: DISABLED")
+
     yield
-    
-    print("👋 Shutting down...")
+
+    print("Shutting down...")
 
 
 app = FastAPI(
@@ -68,6 +81,7 @@ app.include_router(script.router)
 app.include_router(voice.router)
 app.include_router(video.router)
 app.include_router(generate.router)
+app.include_router(personalized.router)
 
 # Serve output files
 app.mount("/outputs", StaticFiles(directory=str(OUTPUT_DIR)), name="outputs")
@@ -79,14 +93,17 @@ async def root():
     return {
         "status": "running",
         "name": "AI Sales Agent API",
-        "version": "1.0.0",
+        "version": "1.1.0",
         "endpoints": {
             "research": "POST /api/research - Research a company",
             "script": "POST /api/script - Generate sales script",
             "voice": "POST /api/voice - Generate voice audio",
+            "voice_clone": "POST /api/voice/clone - Clone a voice from audio sample",
+            "voice_profiles": "GET /api/voice/profiles - List saved voice profiles",
             "video": "POST /api/video - Generate video",
             "generate": "POST /api/generate - Full pipeline",
-            "status": "GET /api/status/{job_id} - Check job status",
+            "personalized": "POST /api/personalized/generate - Personalized video with face + voice",
+            "personalized_status": "GET /api/personalized/status/{job_id} - Check personalized job status",
         }
     }
 

@@ -6,3 +6,5 @@ python-dotenv==1.0.1
 pydantic==2.6.0
 beautifulsoup4==4.12.3
 aiofiles==23.2.1
+python-multipart==0.0.9
+pillow==10.2.0

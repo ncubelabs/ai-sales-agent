@@ -55,6 +55,10 @@ body {
   box-shadow: 0 0 40px rgba(99, 102, 241, 0.3);
 }
 
+.glow-purple {
+  box-shadow: 0 0 40px rgba(168, 85, 247, 0.3);
+}
+
 .glow-text {
   text-shadow: 0 0 30px rgba(99, 102, 241, 0.5);
 }
