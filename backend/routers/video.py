@@ -4,10 +4,9 @@ from pydantic import BaseModel
 from typing import Optional
 from pathlib import Path
 import uuid
-import asyncio
 
-from services.minimax import get_client
-from services.assembler import download_file, OUTPUT_DIR
+from services.ai_service import get_ai_service
+from services.assembler import OUTPUT_DIR
 
 router = APIRouter(prefix="/api", tags=["video"])
 
@@ -17,7 +16,8 @@ video_jobs: dict = {}
 
 class VideoRequest(BaseModel):
     prompt: str
-    model: str = "T2V-01"  # Hailuo model
+    model: str = "T2V-01"  # Hailuo model (for MiniMax)
+    duration: int = 6
 
 
 class VideoResponse(BaseModel):
@@ -37,9 +37,9 @@ class VideoStatusResponse(BaseModel):
 @router.post("/video", response_model=VideoResponse)
 async def generate_video(request: VideoRequest, background_tasks: BackgroundTasks):
     """Start video generation (async - poll /status/{job_id} for result)"""
-    
+
     job_id = uuid.uuid4().hex[:12]
-    
+
     # Initialize job
     video_jobs[job_id] = {
         "status": "pending",
@@ -48,10 +48,12 @@ async def generate_video(request: VideoRequest, background_tasks: BackgroundTask
         "video_url": None,
         "error": None
     }
-    
+
     # Start background task
-    background_tasks.add_task(process_video_job, job_id, request.prompt, request.model)
-    
+    background_tasks.add_task(
+        process_video_job, job_id, request.prompt, request.model, request.duration
+    )
+
     return VideoResponse(
         job_id=job_id,
         status="pending",
@@ -59,32 +61,31 @@ async def generate_video(request: VideoRequest, background_tasks: BackgroundTask
     )
 
 
-async def process_video_job(job_id: str, prompt: str, model: str):
+async def process_video_job(job_id: str, prompt: str, model: str, duration: int):
     """Background task to process video generation"""
     try:
         video_jobs[job_id]["status"] = "processing"
-        
-        client = get_client()
-        
-        # Start video generation
-        result = await client.generate_video(prompt, model)
-        
-        task_id = result.get("task_id")
-        if not task_id:
-            raise Exception(f"No task_id in response: {result}")
-        
-        # Poll for completion
-        final_result = await client.wait_for_video(task_id, poll_interval=10, timeout=600)
-        
-        # Download the video
-        video_url = final_result.get("file_url") or final_result.get("video_url")
-        if video_url:
-            video_path = await download_file(video_url, OUTPUT_DIR)
-            video_jobs[job_id]["video_path"] = video_path
-            video_jobs[job_id]["video_url"] = video_url
-        
+
+        ai = get_ai_service()
+
+        # Generate video
+        result = await ai.generate_video(
+            prompt=prompt,
+            duration=duration,
+            model=model,
+        )
+
+        # Save video if bytes returned
+        if result.video_bytes:
+            video_filename = f"video_{job_id}.mp4"
+            video_path = OUTPUT_DIR / video_filename
+            video_path.write_bytes(result.video_bytes)
+            video_jobs[job_id]["video_path"] = str(video_path)
+        elif result.video_path:
+            video_jobs[job_id]["video_path"] = result.video_path
+
         video_jobs[job_id]["status"] = "completed"
-        
+
     except Exception as e:
         video_jobs[job_id]["status"] = "failed"
         video_jobs[job_id]["error"] = str(e)
@@ -93,12 +94,12 @@ async def process_video_job(job_id: str, prompt: str, model: str):
 @router.get("/status/{job_id}", response_model=VideoStatusResponse)
 async def get_job_status(job_id: str):
     """Check status of a video generation job"""
-    
+
     if job_id not in video_jobs:
         raise HTTPException(status_code=404, detail="Job not found")
-    
+
     job = video_jobs[job_id]
-    
+
     return VideoStatusResponse(
         job_id=job_id,
         status=job["status"],
@@ -106,3 +107,13 @@ async def get_job_status(job_id: str):
         video_url=job.get("video_url"),
         error=job.get("error")
     )
+
+
+@router.get("/video/providers")
+async def get_video_providers():
+    """Get current video provider info"""
+    ai = get_ai_service()
+    return {
+        "current": ai.get_provider_info().get("video"),
+        "available": ai.list_available_providers().get("video", [])
+    }

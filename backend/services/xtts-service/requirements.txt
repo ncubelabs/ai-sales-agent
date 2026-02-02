@@ -1,0 +1,18 @@
+# XTTS Service Dependencies
+fastapi==0.109.0
+uvicorn==0.27.0
+python-multipart==0.0.9
+aiofiles==23.2.1
+
+# Coqui TTS (requires Python 3.9-3.11)
+# Pin transformers to version compatible with TTS 0.22.0
+transformers>=4.33.0,<4.43.0
+# Pin sudachipy for Rust 1.75 compatibility (NVIDIA container)
+sudachipy==0.6.8
+TTS==0.22.0
+
+# Audio processing
+pydub==0.25.1
+scipy==1.11.4
+
+# Note: PyTorch is installed separately in Dockerfile

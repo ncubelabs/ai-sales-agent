@@ -1,0 +1,32 @@
+# AI Sales Agent - Docker Compose
+# Start XTTS service: docker compose up -d xtts
+
+services:
+  # XTTS v2 Voice Synthesis & Cloning Service
+  xtts:
+    build:
+      context: ./services/xtts-service
+      dockerfile: Dockerfile
+    container_name: xtts-service
+    ports:
+      - "5050:5050"
+    volumes:
+      # Persist TTS models (downloaded on first run, ~1.8GB)
+      - xtts-models:/root/.local/share/tts
+      # Persist cloned voices (shared with host)
+      - ./voices:/app/voices
+    environment:
+      - COQUI_TOS_AGREED=1
+    restart: unless-stopped
+    # GPU support for DGX SPARK (requires nvidia-container-toolkit)
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+volumes:
+  xtts-models:
+    name: ai-sales-agent-xtts-models

@@ -6,7 +6,7 @@ from typing import Optional, List
 from pathlib import Path
 import uuid
 
-from services.minimax import get_client
+from services.ai_service import get_ai_service
 from services.voice_profile import (
     create_voice_profile,
     get_voice_profile,
@@ -54,26 +54,15 @@ class VoiceProfileListResponse(BaseModel):
     profiles: List[VoiceProfileResponse]
 
 
-# Available voices for reference
-AVAILABLE_VOICES = {
-    "female-shaonv": "Young female, energetic",
-    "female-yujie": "Mature female, professional",
-    "male-qn-qingse": "Young male, fresh",
-    "male-qn-jingying": "Male, business professional",
-    "presenter_male": "Male presenter voice",
-    "presenter_female": "Female presenter voice",
-}
-
-
 @router.post("/voice", response_model=VoiceResponse)
 async def generate_voice(request: VoiceRequest):
-    """Generate voice audio from text using MiniMax Speech TTS"""
+    """Generate voice audio from text using configured TTS provider"""
 
     try:
-        client = get_client()
+        ai = get_ai_service()
 
         # Generate audio
-        audio_bytes = await client.generate_speech(
+        audio_bytes = await ai.generate_speech(
             text=request.text,
             voice_id=request.voice_id,
             speed=request.speed,
@@ -101,8 +90,14 @@ async def generate_voice(request: VoiceRequest):
 
 @router.get("/voice/voices/list")
 async def list_voices():
-    """List available voice options"""
-    return {"voices": AVAILABLE_VOICES}
+    """List available voice options from current provider"""
+    ai = get_ai_service()
+    voices = ai.list_voices()
+    provider_info = ai.get_provider_info()
+    return {
+        "voices": voices,
+        "provider": provider_info.get("tts", "unknown")
+    }
 
 
 @router.post("/voice/clone", response_model=VoiceCloneResponse)
@@ -180,6 +175,16 @@ async def delete_profile(profile_id: str):
         raise HTTPException(status_code=404, detail="Voice profile not found")
 
     return {"message": "Voice profile deleted", "profile_id": profile_id}
+
+
+@router.get("/voice/providers")
+async def get_voice_providers():
+    """Get current TTS provider info"""
+    ai = get_ai_service()
+    return {
+        "current": ai.get_provider_info().get("tts"),
+        "available": ai.list_available_providers().get("tts", [])
+    }
 
 
 # File download route MUST be last to avoid catching other routes

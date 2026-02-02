@@ -1,13 +1,11 @@
 """Personalized Video Generation Pipeline
 
 Generates hyper-personalized sales videos using:
-- Person's face image (for S2V-01 subject reference)
+- Person's face image (for talking head video)
 - Person's voice sample (for voice cloning)
 - Company research and script generation
 """
 import os
-import json
-import re
 import uuid
 from pathlib import Path
 from typing import Optional
@@ -15,18 +13,16 @@ from typing import Optional
 from fastapi import APIRouter, HTTPException, BackgroundTasks, UploadFile, File, Form
 from pydantic import BaseModel
 
-from services.minimax import get_client
+from services.ai_service import get_ai_service
 from services.scraper import scrape_company_info
 from services.assembler import merge_audio_video, OUTPUT_DIR
 from services.asset_storage import (
     save_and_upload_image,
-    save_and_upload_audio,
     AssetValidationError,
 )
 from services.voice_profile import (
     create_voice_profile,
     get_voice_profile,
-    VoiceProfile,
 )
 
 router = APIRouter(prefix="/api/personalized", tags=["personalized"])
@@ -152,7 +148,7 @@ async def run_personalized_pipeline(job_id: str):
     voice_data = job.get("voice_data")
 
     try:
-        client = get_client()
+        ai = get_ai_service()
 
         # Step 1: Research company (20%)
         job["status"] = "researching"
@@ -169,55 +165,24 @@ Services: {', '.join(scraped.services)}
 Contact: {scraped.contact_info}
 """
 
-        prompt = RESEARCH_PROMPT
-        prompt = prompt.replace("{company_url}", request["company_url"])
-        prompt = prompt.replace("{company_name}", scraped.company_name or scraped.domain)
-        prompt = prompt.replace("{additional_context}", "")
-        prompt = prompt.replace("{scraped_data}", scraped_text)
+        research = await ai.generate_research(
+            research_prompt=RESEARCH_PROMPT,
+            scraped_data=scraped_text,
+            company_url=request["company_url"],
+            company_name=scraped.company_name or scraped.domain,
+        )
 
-        research_text = await client.generate_text(prompt)
-
-        # Parse research JSON
-        clean_text = research_text.strip()
-        clean_text = re.sub(r'<think>.*?</think>', '', clean_text, flags=re.DOTALL).strip()
-
-        if clean_text.startswith("```"):
-            parts = clean_text.split("```")
-            if len(parts) >= 2:
-                clean_text = parts[1]
-                if clean_text.startswith("json"):
-                    clean_text = clean_text[4:]
-
-        clean_text = clean_text.strip()
-        json_start = clean_text.find("{")
-        json_end = clean_text.rfind("}") + 1
-        if json_start >= 0 and json_end > json_start:
-            clean_text = clean_text[json_start:json_end]
-
-        research = json.loads(clean_text)
         job["research"] = research
         job["progress"] = 20
 
         # Step 2: Generate script (35%)
         job["status"] = "scripting"
 
-        script_prompt = SCRIPT_PROMPT
-        script_prompt = script_prompt.replace("{research_profile}", json.dumps(research, indent=2))
-        script_prompt = script_prompt.replace("{sender_name}", request["our_product"])
-
-        script = await client.generate_text(script_prompt, max_tokens=1000)
-
-        clean_script = re.sub(r'<think>.*?</think>', '', script, flags=re.DOTALL).strip()
-
-        if clean_script.startswith("```"):
-            parts = clean_script.split("```")
-            if len(parts) >= 2:
-                clean_script = parts[1].strip()
-
-        if "SCRIPT:" in clean_script:
-            script_start = clean_script.find("SCRIPT:") + 7
-            script_end = clean_script.find("WORD_COUNT:") if "WORD_COUNT:" in clean_script else len(clean_script)
-            clean_script = clean_script[script_start:script_end].strip()
+        clean_script = await ai.generate_script(
+            script_prompt=SCRIPT_PROMPT,
+            research=research,
+            sender_name=request["our_product"],
+        )
 
         job["script"] = clean_script
         job["progress"] = 35
@@ -251,7 +216,7 @@ Contact: {scraped.contact_info}
         # Step 4: Generate audio with cloned voice (55%)
         job["status"] = "generating_voice"
 
-        audio_bytes = await client.generate_speech(
+        audio_bytes = await ai.generate_speech(
             text=clean_script,
             voice_id=voice_id,
             speed=1.0,
@@ -264,16 +229,16 @@ Contact: {scraped.contact_info}
         job["audio_path"] = str(audio_path)
         job["progress"] = 55
 
-        # Step 5: Upload image to get public URL (60%)
+        # Step 5: Save image and prepare for video (60%)
         job["status"] = "uploading_image"
 
-        image_url = await save_and_upload_image(
-            image_data["bytes"],
-            image_data["filename"]
-        )
+        # Save image locally for SadTalker, or upload for MiniMax
+        image_filename = f"face_{job_id}.jpg"
+        image_path = OUTPUT_DIR / image_filename
+        image_path.write_bytes(image_data["bytes"])
         job["progress"] = 60
 
-        # Step 6: Generate S2V-01 video with subject reference (85%)
+        # Step 6: Generate talking head video (85%)
         job["status"] = "generating_video"
 
         company_name = research.get("company_name", "your company")
@@ -284,41 +249,56 @@ Contact: {scraped.contact_info}
             f"High quality, well-lit, corporate environment."
         )
 
-        video_result = await client.generate_subject_video(
-            image_url=image_url,
-            prompt=video_prompt,
-            duration=6
-        )
+        # Check which video provider is being used
+        provider_info = ai.get_provider_info()
 
-        task_id = video_result.get("task_id")
-        if not task_id:
-            raise Exception("No task_id returned from video generation")
+        if provider_info.get("video") == "sadtalker":
+            # SadTalker uses local files
+            video_result = await ai.generate_talking_head(
+                audio_path=str(audio_path),
+                face_image_path=str(image_path),
+            )
+        else:
+            # MiniMax S2V-01 needs a public URL
+            # Upload image to get public URL
+            image_url = await save_and_upload_image(
+                image_data["bytes"],
+                image_data["filename"]
+            )
+            video_result = await ai.generate_talking_head(
+                audio_path=str(audio_path),
+                face_image_path=str(image_path),
+                image_url=image_url,
+                prompt=video_prompt,
+                duration=6
+            )
 
-        # Wait for video completion
-        final_video = await client.wait_for_video(task_id, poll_interval=10, timeout=600)
+        # Save video
+        if video_result.video_bytes:
+            video_filename = f"personalized_video_{job_id}.mp4"
+            video_path = OUTPUT_DIR / video_filename
+            video_path.write_bytes(video_result.video_bytes)
+            job["video_path"] = str(video_path)
+        elif video_result.video_path:
+            job["video_path"] = video_result.video_path
 
-        # Download video
-        file_id = final_video.get("file_id")
-        if not file_id:
-            raise Exception("No file_id in completed video response")
-
-        video_bytes = await client.download_video(file_id)
-        video_filename = f"personalized_video_{job_id}.mp4"
-        video_path = OUTPUT_DIR / video_filename
-        video_path.write_bytes(video_bytes)
-        job["video_path"] = str(video_path)
         job["progress"] = 85
 
         # Step 7: Merge audio and video (100%)
         job["status"] = "merging"
 
-        final_filename = f"personalized_final_{job_id}.mp4"
-        final_path = await merge_audio_video(
-            str(audio_path),
-            str(video_path),
-            final_filename
-        )
-        job["final_path"] = final_path
+        if job.get("video_path"):
+            final_filename = f"personalized_final_{job_id}.mp4"
+            final_path = await merge_audio_video(
+                str(audio_path),
+                job["video_path"],
+                final_filename
+            )
+            job["final_path"] = final_path
+        else:
+            # No video generated, just use audio
+            job["final_path"] = str(audio_path)
+
         job["status"] = "completed"
         job["progress"] = 100
 
@@ -356,3 +336,14 @@ async def get_personalized_status(job_id: str):
         final_path=job.get("final_path"),
         error=job.get("error")
     )
+
+
+@router.get("/providers")
+async def get_personalized_providers():
+    """Get current provider configuration for personalized pipeline"""
+    ai = get_ai_service()
+    return {
+        "providers": ai.get_provider_info(),
+        "available": ai.list_available_providers(),
+        "enabled": ENABLE_PERSONALIZED,
+    }

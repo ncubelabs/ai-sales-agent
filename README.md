@@ -5,7 +5,8 @@ Generate personalized AI-powered video sales pitches in seconds. Upload your pho
 ![AI Sales Agent](https://img.shields.io/badge/AI-Sales%20Agent-6366f1?style=for-the-badge)
 ![Next.js](https://img.shields.io/badge/Next.js-16-black?style=flat-square)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.109-009688?style=flat-square)
-![MiniMax](https://img.shields.io/badge/MiniMax-API-ff6b6b?style=flat-square)
+![Self-Hosted](https://img.shields.io/badge/Self--Hosted-OSS-22c55e?style=flat-square)
+![MiniMax](https://img.shields.io/badge/MiniMax-Fallback-ff6b6b?style=flat-square)
 
 ## Features
 
@@ -15,24 +16,34 @@ Generate personalized AI-powered video sales pitches in seconds. Upload your pho
 - **Custom Scripts** - AI generates personalized 30-second sales pitches
 - **Talking Head Videos** - S2V-01 subject-reference video generation
 - **Voice Profiles** - Save and reuse cloned voices
+- **Self-Hosted Option** - Run entirely on your own infrastructure (NEW!)
 
-## Demo
+## Architecture
 
 ```
-User Input: Photo + 20s Voice + https://stripe.com
-     ↓
-[Research] → Company analysis, pain points, opportunities
-     ↓
-[Script] → "Hey, saw Stripe's expanding into banking services..."
-     ↓
-[Voice Clone] → Clone user's voice
-     ↓
-[TTS] → Generate speech with cloned voice
-     ↓
-[S2V-01] → Talking head video with user's face
-     ↓
-[Output] → Personalized sales video
+┌─────────────────┐         ┌─────────────────┐         ┌─────────────────────────┐
+│    Frontend     │  HTTP   │     Backend     │         │   AI Providers          │
+│   Next.js 16    │◄───────►│    FastAPI      │◄───────►├─────────────────────────┤
+│   Port: 3000    │         │   Port: 8000    │         │ Text: vLLM / MiniMax    │
+└─────────────────┘         └────────┬────────┘         │ TTS:  Edge TTS / Coqui  │
+                                     │                  │ Video: SadTalker / S2V  │
+                            ┌────────▼────────┐         └─────────────────────────┘
+                            │  TTS Service    │
+                            │  (Docker)       │
+                            │  Port: 5050     │
+                            └─────────────────┘
 ```
+
+## Provider Options
+
+| Component | Self-Hosted (OSS) | Cloud (MiniMax) |
+|-----------|-------------------|-----------------|
+| **Text** | vLLM + Llama 3.1 70B | MiniMax-M2 |
+| **TTS** | Edge TTS (Docker) | speech-02-hd |
+| **Voice Clone** | Edge TTS voices* | MiniMax Clone |
+| **Video** | SadTalker | S2V-01/Hailuo |
+
+*Note: Edge TTS uses Microsoft Neural voices. Full voice cloning via XTTS requires compatible GPU/PyTorch configuration.
 
 ## Quick Start
 
@@ -40,8 +51,8 @@ User Input: Photo + 20s Voice + https://stripe.com
 
 - Node.js 18+
 - Python 3.12+
+- Docker (for TTS service)
 - FFmpeg
-- MiniMax API credentials ([Get API Key](https://www.minimax.io/platform))
 
 ### 1. Clone the repository
 
@@ -62,19 +73,28 @@ source venv/bin/activate
 # Install dependencies
 pip install -r requirements.txt
 
-# Configure environment
-cat > .env << EOF
-MINIMAX_API_KEY=your-api-key-here
-MINIMAX_GROUP_ID=your-group-id-here
-MINIMAX_BASE_URL=https://api.minimax.io/v1
-ENABLE_PERSONALIZED_PIPELINE=true
-EOF
-
-# Start server
-uvicorn main:app --reload --port 8000
+# Copy environment template
+cp .env.example .env
+# Edit .env with your configuration
 ```
 
-### 3. Frontend Setup
+### 3. Start TTS Service (Docker)
+
+```bash
+cd backend
+docker compose up -d xtts
+```
+
+This starts the TTS microservice on port 5050.
+
+### 4. Start Backend
+
+```bash
+source venv/bin/activate
+uvicorn main:app --host 0.0.0.0 --port 8000
+```
+
+### 5. Frontend Setup
 
 ```bash
 cd frontend
@@ -82,85 +102,189 @@ cd frontend
 # Install dependencies
 npm install
 
+# Configure API URL
+echo "NEXT_PUBLIC_API_URL=http://localhost:8000" > .env.local
+
 # Start dev server
 npm run dev
 ```
 
-### 4. Open the App
+### 6. Open the App
 
 Navigate to http://localhost:3000
 
-## Usage
+## Configuration
 
-### Web Interface
+### Environment Variables (.env)
 
-**Standard Mode:**
-1. Enter a company URL
-2. Enter your name
-3. Select a preset voice
-4. Click "Generate Video"
+```env
+# =============================================================================
+# Provider Selection
+# =============================================================================
+PROVIDER_TEXT=vllm          # Options: vllm, minimax
+PROVIDER_TTS=coqui          # Options: coqui, edge, minimax
+PROVIDER_VIDEO=sadtalker    # Options: sadtalker, minimax
 
-**Personalized Mode:**
-1. Switch to "Personalized" tab
-2. Upload your photo (JPEG/PNG, min 512x512)
-3. Upload voice sample (MP3/WAV/M4A, 10s-5min)
-4. Enter target company URL
-5. Click "Generate Personalized Video"
+# Fallback chain (if primary fails)
+PROVIDER_TEXT_FALLBACK=vllm,minimax
+PROVIDER_TTS_FALLBACK=coqui,edge,minimax
+PROVIDER_VIDEO_FALLBACK=sadtalker,minimax
 
-### API
+# =============================================================================
+# vLLM Configuration (Self-hosted text generation)
+# =============================================================================
+PROVIDER_VLLM_BASE_URL=http://localhost:8000
+PROVIDER_VLLM_MODEL=meta-llama/Llama-3.1-70B-Instruct
+
+# =============================================================================
+# Coqui/Edge TTS Configuration (Docker microservice)
+# =============================================================================
+PROVIDER_COQUI_MODE=service
+PROVIDER_COQUI_SERVICE_URL=http://localhost:5050
+PROVIDER_COQUI_VOICES_DIR=./voices
+
+# =============================================================================
+# SadTalker Configuration (Self-hosted video)
+# =============================================================================
+PROVIDER_SADTALKER_CHECKPOINT=./models/sadtalker
+PROVIDER_SADTALKER_DEVICE=cuda
+PROVIDER_SADTALKER_PREPROCESS=crop
+
+# =============================================================================
+# MiniMax API (Fallback / Cloud option)
+# =============================================================================
+MINIMAX_API_KEY=your-api-key-here
+MINIMAX_GROUP_ID=your-group-id-here
+MINIMAX_BASE_URL=https://api.minimax.io/v1
+
+# =============================================================================
+# Pipeline
+# =============================================================================
+ENABLE_PERSONALIZED_PIPELINE=true
+```
+
+## Services Status
+
+Check all services are running:
 
 ```bash
-# Personalized video generation
+# TTS Service
+curl http://localhost:5050/health
+# Expected: {"status":"healthy","cuda":false,"model_loaded":true,"backend":"edge-tts"}
+
+# Backend API
+curl http://localhost:8000/health
+# Expected: {"status":"healthy"}
+
+# Provider status
+curl http://localhost:8000/providers
+```
+
+## API Usage
+
+### Personalized Video Generation
+
+```bash
 curl -X POST http://localhost:8000/api/personalized/generate \
   -F "company_url=https://stripe.com" \
   -F "person_image=@photo.jpg" \
   -F "voice_sample=@voice.mp3" \
   -F "our_product=AI consulting services"
-
-# Check job status
-curl http://localhost:8000/api/personalized/status/{job_id}
-
-# Clone a voice (save for later use)
-curl -X POST http://localhost:8000/api/voice/clone \
-  -F "audio=@voice.mp3" \
-  -F "name=MyVoice"
-
-# List saved voice profiles
-curl http://localhost:8000/api/voice/profiles
-
-# Standard generation (preset voices)
-curl -X POST http://localhost:8000/api/generate \
-  -H "Content-Type: application/json" \
-  -d '{
-    "company_url": "https://stripe.com",
-    "our_product": "AI consulting services",
-    "voice_id": "male-qn-qingse"
-  }'
 ```
+
+### Text-to-Speech
+
+```bash
+curl -X POST http://localhost:5050/synthesize \
+  -H "Content-Type: application/json" \
+  -d '{"text": "Hello world", "voice_id": "en-US-AriaNeural"}' \
+  --output speech.mp3
+```
+
+### Available TTS Voices
+
+| Voice ID | Name | Language |
+|----------|------|----------|
+| en-US-AriaNeural | Aria | English (US) |
+| en-US-GuyNeural | Guy | English (US) |
+| en-US-JennyNeural | Jenny | English (US) |
+| en-GB-SoniaNeural | Sonia | English (UK) |
+| en-GB-RyanNeural | Ryan | English (UK) |
+| zh-CN-XiaoxiaoNeural | Xiaoxiao | Chinese |
+| ja-JP-NanamiNeural | Nanami | Japanese |
+| es-ES-ElviraNeural | Elvira | Spanish |
+| fr-FR-DeniseNeural | Denise | French |
 
 ### API Documentation
 
 Interactive docs available at http://localhost:8000/docs
 
-## Architecture
+## Project Structure
 
 ```
-┌─────────────────┐         ┌─────────────────┐         ┌─────────────────┐
-│    Frontend     │  HTTP   │     Backend     │  HTTPS  │   MiniMax APIs  │
-│   Next.js 16    │◄───────►│    FastAPI      │◄───────►│  M2/TTS/Video   │
-│   Port: 3000    │         │   Port: 8000    │         │  Voice Clone    │
-└─────────────────┘         └─────────────────┘         └─────────────────┘
+ai-sales-agent/
+├── backend/
+│   ├── main.py                    # FastAPI application
+│   ├── docker-compose.yml         # TTS service orchestration
+│   ├── providers/                 # Provider abstraction layer
+│   │   ├── base.py               # Abstract interfaces
+│   │   ├── config.py             # Environment configuration
+│   │   ├── registry.py           # Provider factory + fallbacks
+│   │   ├── text/                 # Text generation providers
+│   │   │   ├── minimax.py        # MiniMax M2 (cloud)
+│   │   │   └── vllm.py           # vLLM + Llama (self-hosted)
+│   │   ├── tts/                  # TTS providers
+│   │   │   ├── minimax.py        # MiniMax Speech (cloud)
+│   │   │   ├── coqui.py          # XTTS/Edge TTS service
+│   │   │   └── edge.py           # Edge TTS direct
+│   │   └── video/                # Video providers
+│   │       ├── minimax.py        # MiniMax Hailuo (cloud)
+│   │       └── sadtalker.py      # SadTalker (self-hosted)
+│   ├── services/
+│   │   ├── ai_service.py         # Unified AI service layer
+│   │   ├── minimax.py            # Legacy MiniMax client
+│   │   └── xtts-service/         # TTS Docker microservice
+│   │       ├── Dockerfile
+│   │       ├── server.py         # Edge TTS FastAPI server
+│   │       └── requirements.txt
+│   ├── routers/                   # API endpoints
+│   ├── prompts/                   # LLM prompt templates
+│   ├── voices/                    # Cloned voice samples
+│   └── outputs/                   # Generated files
+├── frontend/
+│   ├── app/                       # Next.js app router
+│   ├── components/                # React components
+│   └── lib/                       # API client
+├── docs/
+│   ├── OSS_MIGRATION.md          # Self-hosted setup guide
+│   ├── SYSTEM_ARCHITECTURE.md    # Detailed architecture
+│   └── PROMPTS.md                # LLM prompt documentation
+└── pitch-deck.html               # Hackathon presentation
 ```
 
-### Personalized Pipeline Flow
+## GPU Requirements (Self-Hosted)
+
+| Model | VRAM |
+|-------|------|
+| vLLM (Llama 70B) | ~40GB |
+| SadTalker | ~8GB |
+| **Total** | ~48GB |
+
+TTS runs in Docker without GPU (Edge TTS is cloud-based synthesis).
+
+Recommended hardware:
+- NVIDIA A100 80GB
+- 2x A100 40GB (tensor parallelism)
+- DGX SPARK
+
+## Pipeline Flow
 
 | Step | Duration | Description |
 |------|----------|-------------|
 | Research | 5-10s | Scrape URL + AI company analysis |
 | Script | 5-8s | Generate personalized pitch |
-| Voice Clone | 2-3s | Clone voice from sample |
-| TTS | 5-10s | Generate speech with cloned voice |
-| Video | 3-4min | S2V-01 talking head generation |
+| TTS | 2-5s | Generate speech (Edge TTS) |
+| Video | 3-4min | Talking head generation |
 | Merge | 2-5s | FFmpeg audio+video combine |
 
 ## Tech Stack
@@ -174,123 +298,38 @@ Interactive docs available at http://localhost:8000/docs
 ### Backend
 - FastAPI
 - Python 3.12
+- Provider abstraction layer
 - httpx (async HTTP)
-- BeautifulSoup4 (web scraping)
 - Pydantic (validation)
 
-### MiniMax APIs
-| API | Model | Purpose |
-|-----|-------|---------|
-| Text Generation | `MiniMax-M2` | Company research & script writing |
-| Voice Cloning | `/v1/voice_clone` | Clone voice from audio sample |
-| Text-to-Speech | `speech-02-hd` | Generate speech with cloned voice |
-| Video Generation | `S2V-01` (Hailuo) | Subject-reference talking head videos |
-| File Upload | `/v1/files/upload` | Upload audio for voice cloning |
+### TTS Service (Docker)
+- Edge TTS (Microsoft Neural voices)
+- FastAPI microservice
+- Lightweight Python 3.11 image
 
-### Infrastructure
-- FFmpeg - Audio/video processing
-- uguu.se - Temporary image hosting (for S2V-01)
+### AI Providers
+| Provider | Self-Hosted | Cloud |
+|----------|-------------|-------|
+| Text | vLLM + Llama 3.1 | MiniMax M2 |
+| TTS | Edge TTS | MiniMax speech-02-hd |
+| Video | SadTalker | MiniMax S2V-01 |
 
-## Project Structure
+## Troubleshooting
 
-```
-ai-sales-agent/
-├── backend/
-│   ├── main.py                    # FastAPI application
-│   ├── routers/
-│   │   ├── generate.py            # Standard pipeline endpoint
-│   │   ├── personalized.py        # Personalized video pipeline
-│   │   ├── voice.py               # Voice clone & TTS endpoints
-│   │   ├── research.py            # Company research
-│   │   ├── script.py              # Script generation
-│   │   └── video.py               # Video endpoint
-│   ├── services/
-│   │   ├── minimax.py             # MiniMax API client
-│   │   ├── voice_profile.py       # Voice profile management
-│   │   ├── asset_storage.py       # File upload handling
-│   │   ├── scraper.py             # Web scraper
-│   │   └── assembler.py           # FFmpeg wrapper
-│   ├── prompts/                   # LLM prompt templates
-│   ├── data/                      # Voice profiles storage
-│   ├── uploads/                   # Uploaded files
-│   ├── outputs/                   # Generated files
-│   └── requirements.txt
-├── frontend/
-│   ├── app/
-│   │   ├── page.tsx               # Main page
-│   │   ├── layout.tsx             # Root layout
-│   │   └── globals.css            # Styles
-│   ├── components/
-│   │   └── PersonalizedForm.tsx   # Personalized mode form
-│   ├── lib/
-│   │   └── api.ts                 # API client
-│   └── package.json
-├── pitch-deck.html                # Hackathon presentation
-└── docs/
-    └── SYSTEM_ARCHITECTURE.md
+### TTS Service Not Responding
+```bash
+docker compose logs xtts
+docker compose restart xtts
 ```
 
-## Configuration
-
-### Environment Variables
-
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `MINIMAX_API_KEY` | Yes | MiniMax API key |
-| `MINIMAX_GROUP_ID` | Yes | MiniMax Group ID (for TTS & voice clone) |
-| `MINIMAX_BASE_URL` | No | API base URL (default: https://api.minimax.io/v1) |
-| `ENABLE_PERSONALIZED_PIPELINE` | No | Enable personalized mode (default: true) |
-
-### Preset Voice Options
-
-| ID | Name | Description |
-|----|------|-------------|
-| `male-qn-qingse` | James | Professional & confident |
-| `male-qn-jingying` | Marcus | Warm & friendly |
-| `female-shaonv` | Sarah | Energetic & dynamic |
-| `female-yujie` | Emma | Calm & trustworthy |
-
-## Output Files
-
-Generated files are stored in `backend/outputs/`:
-
-```
-outputs/
-├── personalized_audio_{job_id}.mp3   # Cloned voice narration
-├── personalized_video_{job_id}.mp4   # S2V-01 video
-├── personalized_final_{job_id}.mp4   # Merged output
-├── audio_{job_id}.mp3                # Standard voice
-├── video_{job_id}.mp4                # Standard video
-└── final_{job_id}.mp4                # Standard merged
+### Backend Connection Error
+Ensure TTS service is running:
+```bash
+curl http://localhost:5050/health
 ```
 
-## Cost Estimation
-
-| Component | Cost per Video |
-|-----------|----------------|
-| Text Generation (M2) | ~$0.01 |
-| Voice Cloning | ~$0.02 |
-| TTS (speech-02-hd) | ~$0.02 |
-| Video (S2V-01) | ~$0.40 |
-| **Total** | **~$0.45** |
-
-## Limitations
-
-- **Development only** - No authentication, CORS allows all origins
-- **In-memory storage** - Job state lost on server restart
-- **Video duration** - Fixed 6-second AI videos
-- **Rate limits** - Subject to MiniMax API limits
-- **Image hosting** - Uses external service (uguu.se) for S2V-01
-
-## Roadmap
-
-- [ ] User authentication
-- [ ] Persistent job storage (Redis)
-- [ ] Custom video duration
-- [ ] Direct image upload to MiniMax (when supported)
-- [ ] Batch processing
-- [ ] CRM integrations
-- [ ] Lip-sync improvement with D-ID
+### Provider Fallback
+If you see "Using fallback provider", check primary provider logs.
 
 ## License
 
@@ -301,6 +340,9 @@ MIT License - see [LICENSE](LICENSE) for details.
 Built by [Ncubelabs.com](https://ncubelabs.com) for MiniMax Hackathon 2025.
 
 Powered by:
-- [MiniMax](https://www.minimax.io/) - AI APIs (M2, Speech-02-HD, S2V-01)
+- [MiniMax](https://www.minimax.io/) - AI APIs (fallback)
+- [Edge TTS](https://github.com/rany2/edge-tts) - Microsoft Neural TTS
+- [vLLM](https://github.com/vllm-project/vllm) - Fast LLM inference
+- [SadTalker](https://github.com/OpenTalker/SadTalker) - Talking head generation
 - [Next.js](https://nextjs.org/) - React framework
 - [FastAPI](https://fastapi.tiangolo.com/) - Python API framework
